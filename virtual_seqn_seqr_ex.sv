@@ -1,4 +1,5 @@
 //Start 2 seqeunces on to the single sequencer Sequentially in the Test
+//Scenario 1:
 class my_test extends uvm_test;
   `uvm_component_utils(my_test)
 
@@ -28,7 +29,7 @@ class my_test extends uvm_test;
   endtask
 endclass
 
-
+//Scenario:2 
 //🧱 Architecture
 //Top-Level Test
 //    ↓
@@ -135,3 +136,43 @@ endclass
 //| `top_seq`              | A parent sequence that controls other sequences     |
 //| `.start()` in `body()` | Launches `seq_A`, then waits, then launches `seq_B` |
 //| Real test              | Starts the `top_seq` on the virtual sequencer       |
+
+
+//Scenario 3:
+//If your testbench only has one sequencer and you're not planning to scale to multiple agents, then:
+//✔️ You can safely skip the virtual sequencer and run everything using just the main sequencer and a top-level uvm_sequence#(my_txn).
+
+class top_seq extends uvm_sequence #(my_txn); // not generic now
+  `uvm_object_utils(top_seq)
+
+  function new(string name = "top_seq");
+    super.new(name);
+  endfunction
+
+  task body();
+    `uvm_info("TOP_SEQ", "Running top_seq", UVM_LOW)
+
+    seq_A sA = seq_A::type_id::create("sA");
+	//"m_sequencer" is a built-in protected handle in the uvm_sequence base class.
+    sA.start(m_sequencer); // m_sequencer is already of type my_sequencer
+
+    #100ns;
+
+    seq_B sB = seq_B::type_id::create("sB");
+    sB.start(m_sequencer);
+  endtask
+endclass
+
+//💡 Interpretation: 
+//top_seq is started on my_sequencer (your only sequencer).
+//So m_sequencer inside top_seq points to that my_sequencer instance.
+//You’re using it to launch child sequences (seq_A and seq_B) on the same sequencer.
+
+task run_phase(uvm_phase phase);
+  phase.raise_objection(this);
+
+  top_seq seq = top_seq::type_id::create("top_seq");
+  seq.start(env.seqr); // directly start on my_sequencer
+
+  phase.drop_objection(this);
+endtask
